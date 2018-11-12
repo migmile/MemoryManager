@@ -1,30 +1,31 @@
 #pragma once
 #include <iostream>
 #include <stdlib.h>
+#include <deque>
+using std::deque;
 
 class MemManager_DL
 {
 	struct MemChain
-	{
-		unsigned shift;		// смещение от начала 
+	{						// structure for memory block information
+		void * addr;		// adress 
 		unsigned size;
-		char free;      // занят - 0, свободен - 1
-//		MemChain *prev;
-		MemChain *next;
+		char free;			// занят - 0, свободен - 1
+//		MemChain *next;
 	};
 	unsigned HeadSize;
 	
-	MemChain * List;
-	MemChain * LastFree;
-	char * Mem ;
-	unsigned totalSize = 0;
-	MemChain * FindLastFree(MemChain *ch)
-	{ // найти первый свободный
+	deque<MemChain*> AllocatedList;		// List of allocated blockes
+	deque<MemChain*> FreeList;			// list of free blockes
+	char * Mem ;						// "heap" - placement of all blockes
+	unsigned totalSize = 0;				// ?
+/*	MemChain * FindFree(MemChain *ch)	
+	{ // find first free
 		for (; ch != NULL; ch = ch->next)
 		{
 			if (ch->free == 1) return ch;
 		}
-	}
+	}*/
 public:
 	MemManager_DL(unsigned _size);
 	~MemManager_DL();
@@ -33,51 +34,53 @@ public:
 	void Print(const char * str);
 };
 
-// попытка сделать свой список вместо list
-
+// 
 MemManager_DL::MemManager_DL(unsigned _size)
 {
 	HeadSize = sizeof MemChain;
 	Mem = (char*)malloc(_size);
 	if (Mem == NULL) throw "error allocating mem";
 	totalSize = _size;
-	List = (MemChain *)Mem;
-	List->shift = 0;
-	List->free = 1;
-	List->size = totalSize - HeadSize;
+	MemChain *ch = (MemChain *)Mem;
+//	ch->addr = 0;
+	ch->free = 1;
+	ch->size = totalSize - HeadSize;
 	//List->prev=NULL;
-	List->next = NULL;
-	LastFree = List;
+//	ee->next = NULL;
+	FreeList.push_back(ch);
 }
 
 MemManager_DL::~MemManager_DL()
 {
 	if (Mem != NULL) free(Mem);
+	FreeList.clear();
+	AllocatedList.clear();
 }
 
 
 void * MemManager_DL::alloc(unsigned size)
 {
 	unsigned req_size = size + HeadSize;
-	auto ch = LastFree;
-	if (NULL == ch) ch = List;
-	for (; ch != NULL; ch = ch->next)
+	auto ch = FreeList.begin();
+//	if (NULL == ch) ch = List;
+	for (; ch !=FreeList.end(); ch++)
 	{
-		if (ch->free == 1 && ch->size >= req_size) break;
+		if ((*ch)->size >= req_size) break;
 	}
-	if (ch != NULL)
+	if (ch != FreeList.end())
 	{	// выделим из данного блока нужный кусок и вставим в список ссылку на оставшуюся свободную часть 
 		MemChain * ch1;		// new block - describe остаток
-		unsigned shift = ch->shift + req_size; // сдвиг нового блока 
-		ch1 = (MemChain *)(Mem + shift);
-		ch1->next = ch->next;	// lists
-		ch->next = ch1;
-		ch1->shift = shift;
-		ch1->free = 1;
-		ch1->size = ch->size - req_size;
-		ch->size = size;
-		ch->free = 0;
-		LastFree = FindLastFree(ch1);
+		unsigned shift = req_size; // сдвиг нового блока relative to prev
+		ch1 = *ch + shift;
+		//ch1->next = ch->next;	// lists
+		//ch->next = ch1;
+		//ch1->shift = shift;
+		//ch1->free = 1;
+		ch1->size = (*ch)->size - req_size;
+		(*ch)->size = size;
+		//ch->free = 0;
+		*ch=ch1;
+		AllocatedList.push_back(*ch);
 		return ch1 + HeadSize;
 	}
 	return NULL;
@@ -86,9 +89,10 @@ void * MemManager_DL::alloc(unsigned size)
 void  MemManager_DL::free(void * ptr)
 {
 	if (ptr<Mem && ptr>Mem + totalSize) throw "wrong adr";
-	auto ch = List;
-	for (; ch != NULL; ch = ch->next) if (ch + HeadSize == ptr) {
-		ch->free = 1;
+	auto ch = AllocatedList.begin();
+	for (; ch != AllocatedList.end(); ch ++) if ((*ch) + HeadSize == ptr) {
+		FreeList.push_back(*ch);
+		AllocatedList.erase(ch);
 		break;
 	}
 
@@ -123,8 +127,10 @@ void MemManager_DL::Print(const char * str)
 {
 	return;
 	std::cout << str << "\n";
+/*
 	for (auto ch = List; ch != NULL; ch++)
 		std::cout << ch->shift << "    "
 		<< ch->size << "    "
 		<< ch->free << "\n";
+		*/
 }
