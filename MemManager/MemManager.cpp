@@ -21,8 +21,8 @@
 using std::cout;
 using std::list;
 
-const unsigned Len = 1024 * 100;
-const unsigned Count = 5000;
+const unsigned Len = 10;
+const unsigned Count = 3;
 
 
 int Test_newPlacement()
@@ -59,11 +59,11 @@ int Test_newPlacement()
 
 int TestMM_DL()
 {
-	MemManager_DL mm(Len * sizeof(int)+24*Count);
+	MemManager_DL mm(Len * sizeof(int)+17*Count);
 
 	std::vector<int *> pointers;
 	pointers.reserve(Count);
-//	mm.Print("begin");
+	mm.Print("begin");
 	std::chrono::time_point<std::chrono::high_resolution_clock> p1 = std::chrono::high_resolution_clock::now(), p2, p3;
 
 	for (int i = 0; i < Count; i++)
@@ -75,6 +75,7 @@ int TestMM_DL()
 			cout << "Errrooorrr!!!!";
 		}*/
 		pointers.push_back(ptr);
+		mm.Print("+++++");
 	}
 	p2 = std::chrono::high_resolution_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1> >>(p2 - p1).count() << "\n";
@@ -83,6 +84,7 @@ int TestMM_DL()
 	{
 		ReadMem(pointers[i], Len / Count);
 		mm.free(pointers[i]);
+		mm.Print("-----");
 	}
 	p3 = std::chrono::high_resolution_clock::now();
 
@@ -183,15 +185,17 @@ int TestMMDeque()
 
 int main()
 {
+	std::cout << "My List Manager\n";
+	TestMM_DL();
+
+	return 0;
+
 	std::cout << "New Manager\n";
 	Test_newPlacement();
 
 	std::cout << "LIST1\n";
 	TestMMList1();
-
-	std::cout << "My List Manager\n";
-	TestMM_DL();
-		
+			
 	std::cout << "LIST\n";
 	TestMMList();
 
