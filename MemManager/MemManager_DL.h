@@ -8,10 +8,9 @@ class MemManager_DL
 {
 	struct MemChain
 	{					// structure for memory block information
-		void * addr;					// adress of data block
-		unsigned size;
-		char free;						// занят - 0, свободен - 1
-//		MemChain *next;
+		void * addr;			// adress of data block
+		int size;				// don't include size of header !!! MUST be SIGNED!
+		//char free;					// занят - 0, свободен - 1
 	};
 	unsigned HeadSize;
 	
@@ -35,9 +34,9 @@ MemManager_DL::MemManager_DL(unsigned _size)
 	if (Mem == NULL) throw "error allocating mem";
 	totalSize = _size;
 	MemChain *ch = (MemChain *)Mem;
-	ch->addr = Mem + HeadSize;
-	ch->free = 1;
-	ch->size = totalSize - HeadSize;
+	ch->addr = Mem ;
+//	ch->free = 1;
+	ch->size = _size - HeadSize;
 	FreeList.push_back(ch);
 }
 
@@ -56,7 +55,7 @@ void * MemManager_DL::alloc(unsigned size)
 
 	for (; ch !=FreeList.end(); ch++)
 	{
-		if ((*ch)->size >= req_size) break;
+		if ((*ch)->size >= size) break;
 	}
 	if (ch != FreeList.end())
 	{	// выделим из данного блока нужный кусок и вставим в список ссылку на оставшуюся свободную часть 
@@ -67,8 +66,9 @@ void * MemManager_DL::alloc(unsigned size)
 		ch1->size = (*ch)->size - req_size;
 		(*ch)->size = size;
 		AllocatedList.push_back(*ch);
+		auto address = (char*)(*ch)->addr + HeadSize;
 		*ch = ch1;
-		return ch1 + HeadSize;
+		return address;
 	}
 	return NULL;
 }
@@ -77,13 +77,11 @@ void  MemManager_DL::free(void * ptr)
 {
 	if (ptr<Mem && ptr>Mem + totalSize) throw "wrong adr";
 	auto ch = AllocatedList.begin();
-	for (; ch != AllocatedList.end(); ch ++) if ((*ch) + HeadSize == ptr) {
-//		(*ch)->size = ((ch + 1) - ch)- HeadSize;
+	for (; ch != AllocatedList.end(); ch ++) if ((char*)(*ch)->addr + HeadSize == ptr) {
 		FreeList.push_back(*ch);
 		AllocatedList.erase(ch);
 		break;
 	}
-
 }
 unsigned maxSize() { return 1; };
 

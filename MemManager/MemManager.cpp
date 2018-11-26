@@ -21,8 +21,9 @@
 using std::cout;
 using std::list;
 
-const unsigned Len = 10;
 const unsigned Count = 3;
+const unsigned Len = Count * 5;
+
 
 
 int Test_newPlacement()
@@ -59,7 +60,7 @@ int Test_newPlacement()
 
 int TestMM_DL()
 {
-	MemManager_DL mm(Len * sizeof(int)+17*Count);
+	MemManager_DL mm(Len * sizeof(int)+16*Count);
 
 	std::vector<int *> pointers;
 	pointers.reserve(Count);
@@ -69,7 +70,7 @@ int TestMM_DL()
 	for (int i = 0; i < Count; i++)
 	{
 		int * ptr = (int*)mm.alloc(Len / Count * sizeof(int));
-		//if (ptr!=NULL) 
+		if (ptr!=NULL) 
 			WriteMem(ptr, Len / Count);
 		/*else {
 			cout << "Errrooorrr!!!!";
