@@ -1,9 +1,0 @@
-# depslib dependency file v1.0
-1541082861 source:c:\temp\c++tests\tasks\memmanager\memmanager\main.cpp
-	<iostream>
-	<list>
-	<vector>
-	<malloc.h>
-	<stdlib.h>
-	<chrono>
-

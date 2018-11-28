@@ -1,22 +1,32 @@
 #pragma once
+
+// this is an example of inplace memory manager.
+// From the heap at the constructor the large block of memory is allocated;
+// each call of alloc will get the requered block,
+// at the begining of each block - the structure MemChain {adress, length}
+// MemManager_DL contain two containers: for free blockes and for allocated.
+// if there are a lot of freed  blockes of dufferent size it's usefull to call GarbCol to combine adjusent free blockes
+// I used std::set for list of free blockes because it is better to be as sorted list.
+
 #include <iostream>
 #include <stdlib.h>
 #include <deque>
+#include <set>
 using std::deque;
+using std::set;
 
 class MemManager_DL
 {
 	struct MemChain
-	{					// structure for memory block information
+	{							// structure for memory block information
 		void * addr;			// adress of data block
 		int size;				// don't include size of header !!! MUST be SIGNED!
-		//char free;					// занят - 0, свободен - 1
 	};
 	unsigned HeadSize;
-	
+
 	deque<MemChain*> AllocatedList;		// List of allocated blockes
-	deque<MemChain*> FreeList;			// list of free blockes
-	char * Mem ;						// "heap" - placement of all blockes
+	set<MemChain*> FreeList;			// list of free blockes
+	char * Mem;							// "heap" - placement of all blockes
 	unsigned totalSize = 0;				// ?
 public:
 	MemManager_DL(unsigned _size);
@@ -24,9 +34,10 @@ public:
 	void * alloc(unsigned size);
 	void free(void * ptr);
 	void Print(const char * str);
+	void GarbCol();
 };
 
-// 
+
 MemManager_DL::MemManager_DL(unsigned _size)
 {
 	HeadSize = sizeof MemChain;
@@ -34,10 +45,9 @@ MemManager_DL::MemManager_DL(unsigned _size)
 	if (Mem == NULL) throw "error allocating mem";
 	totalSize = _size;
 	MemChain *ch = (MemChain *)Mem;
-	ch->addr = Mem ;
-//	ch->free = 1;
+	ch->addr = Mem;
 	ch->size = _size - HeadSize;
-	FreeList.push_back(ch);
+	FreeList.insert(ch);
 }
 
 MemManager_DL::~MemManager_DL()
@@ -53,21 +63,26 @@ void * MemManager_DL::alloc(unsigned size)
 	unsigned req_size = size + HeadSize;
 	auto ch = FreeList.begin();
 
-	for (; ch !=FreeList.end(); ch++)
+	for (; ch != FreeList.end(); ch++)
 	{
 		if ((*ch)->size >= size) break;
 	}
+
 	if (ch != FreeList.end())
 	{	// выделим из данного блока нужный кусок и вставим в список ссылку на оставшуюся свободную часть 
 		MemChain * ch1;					// new block - describe остаток
-		unsigned shift = req_size;		// сдвиг нового блока relative to prev
+		unsigned shift = req_size;		// new block shift relative to prev block
 		ch1 = (MemChain *)((char*)(*ch) + req_size);
 		ch1->addr = (char*)(*ch)->addr + req_size;
 		ch1->size = (*ch)->size - req_size;
 		(*ch)->size = size;
 		AllocatedList.push_back(*ch);
 		auto address = (char*)(*ch)->addr + HeadSize;
-		*ch = ch1;
+		if (ch1->size > 0) {
+			FreeList.erase(ch);
+			FreeList.insert(ch1);
+		}
+		else FreeList.erase(ch);
 		return address;
 	}
 	return NULL;
@@ -77,45 +92,40 @@ void  MemManager_DL::free(void * ptr)
 {
 	if (ptr<Mem && ptr>Mem + totalSize) throw "wrong adr";
 	auto ch = AllocatedList.begin();
-	for (; ch != AllocatedList.end(); ch ++) if ((char*)(*ch)->addr + HeadSize == ptr) {
-		FreeList.push_back(*ch);
+	for (; ch != AllocatedList.end(); ch++) if ((char*)(*ch)->addr + HeadSize == ptr) {
+		FreeList.insert(*ch);
 		AllocatedList.erase(ch);
 		break;
 	}
 }
 unsigned maxSize() { return 1; };
 
-void GarbCol()
+void MemManager_DL::GarbCol()
 {
-	/*
-	// сборщик мусора
-	auto ch = List.begin(), pr = ch;
-	for (int c = 0; ch != List.end(); ch++)
+	// "garbage collector"
+	auto ch = FreeList.begin(), pr = ch;
+	ch++;
+	for (; ch != FreeList.end(); ch++)
 	{
-		if ((*ch)->free == 1)
+		if ((char*)(*pr)->addr + (*pr)->size + HeadSize == (*ch)->addr)
 		{
-			c++;
-			if (c == 2)	// предыдущий был тоже свободный
-			{
-				(*pr)->size += (*ch)->size;
-				List.erase(ch);
-				c = 1;
-				ch = pr;
-				continue;
-			}
+			(*pr)->size += ((*ch)->size + HeadSize);
+			FreeList.erase(ch);
+			ch = pr;
+			continue;
 		}
-		else c = 0;
-		pr = ch;
-	}*/
+		else
+			pr = ch;
+	}
 }
 
 void MemManager_DL::Print(const char * str)
-{
+{	// only for debug!
 	std::cout << str << "\n";
 
 	for (auto ch = FreeList.begin(); ch != FreeList.end(); ch++)
-		std::cout	<< *ch << "    "
-					<< (*ch)->addr << "    "
-					<< (*ch)->size << "\n";
+		std::cout << *ch << "    "
+		<< (*ch)->addr << "    "
+		<< (*ch)->size << "\n";
 
 }
